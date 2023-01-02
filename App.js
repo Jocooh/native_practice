@@ -1,21 +1,16 @@
 import { StatusBar } from "expo-status-bar";
-import { Ionicons, FontAwesome } from "@expo/vector-icons";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
-import {
-  StyledList,
-  StyledCategory,
-  StyledInputBox,
-  StyledTextInput,
-  StyledTouchable,
-  StyledBtns,
-} from "./styles";
-import { SafeAreaView, TouchableOpacity } from "react-native";
-import { useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Category from "./components/Category";
+import Todo from "./components/Todo";
+import { Alert, ScrollView, StyleSheet } from "react-native";
+import { StyledInputBox, StyledTextInput } from "./styles";
+import { SafeAreaView } from "react-native";
+import { useEffect, useState } from "react";
 
 export default function App() {
   const [text, setText] = useState(""); //사용자 입력값
   const [todos, setTodos] = useState([]); // 입력한 투두들
-  const [category, setCategory] = useState("js"); //카테고리별 state
+  const [category, setCategory] = useState(""); //카테고리별 state
 
   //투두에 입력될 기본 데이터 값을 정하자
   const newTodo = {
@@ -32,42 +27,31 @@ export default function App() {
     setText("");
   };
 
-  //카테고리를 지정하자
-  //1.카테고리를 누르면 배경색이 바뀌도록 해주자.
+  //todos가 변할때마다 상태를 저장하겠다.
+  useEffect(() => {
+    //현재의 최신 todos를 storage에 저장
+    const saveTodos = async () => {
+      await AsyncStorage.setItem("todos", JSON.stringify(todos)); //저장하기전 json으로 넣어주기위해서 꼭 필요
+    };
+    if (todos.length > 0) saveTodos(); //처음에 빈 배열로 되어 있으므로 useEffect가 읽히지 않을 것이다. 그러고 나서 추가되면 읽히기 시작한다.
+  }, [todos]);
+
+  //처음 마운트 됬을때 데이터를 불러오겠다.(새로고침이나 처음 렌더링이 되었을때)
+  useEffect(() => {
+    const getData = async () => {
+      const getItem_todos = await AsyncStorage.getItem("todos"); //todos는 배열이므로 스토리지에 보관했을때 파싱을 반드시 해서 값을 가져와야한다.
+      const getItem_category = await AsyncStorage.getItem("category");
+      setTodos(JSON.parse(getItem_todos) ?? []);
+      setCategory(getItem_category ?? "js");
+    };
+    getData();
+  }, []); //처음 한번만 가져오겠다.
 
   return (
     <SafeAreaView style={styles.wrraper}>
       <StatusBar style="auto" />
       {/* 카테고리 지정 */}
-      <StyledCategory>
-        <StyledTouchable
-          onPress={() => {
-            setCategory("js");
-          }}
-        >
-          <View>
-            <StyledBtns>javascript</StyledBtns>
-          </View>
-        </StyledTouchable>
-        <StyledTouchable
-          onPress={() => {
-            setCategory("react");
-          }}
-        >
-          <View>
-            <StyledBtns>react</StyledBtns>
-          </View>
-        </StyledTouchable>
-        <StyledTouchable
-          onPress={() => {
-            setCategory("ct");
-          }}
-        >
-          <View>
-            <StyledBtns>codingTest</StyledBtns>
-          </View>
-        </StyledTouchable>
-      </StyledCategory>
+      <Category category={category} setCategory={setCategory}></Category>
       {/* 할일 적는 input */}
       <StyledInputBox>
         <StyledTextInput
@@ -80,42 +64,9 @@ export default function App() {
       {/* 리스트 적는 공간 */}
       <ScrollView>
         {todos.map((item) => {
-          return (
-            <StyledList>
-              <Text
-                style={{
-                  padding: 13,
-                  fontSize: 20,
-                  fontWeight: "bold",
-                }}
-              >
-                {item.text}
-              </Text>
-              <View style={{ flexDirection: "row", padding: 10 }}>
-                <TouchableOpacity>
-                  <FontAwesome name="pencil-square-o" size={26} color="black" />
-                </TouchableOpacity>
-                {/* 삭제 아이콘*/}
-                <TouchableOpacity>
-                  <Ionicons
-                    name="ios-trash-bin"
-                    size={26}
-                    color="black"
-                    style={{ marginLeft: 7 }}
-                  />
-                </TouchableOpacity>
-                {/* isDone */}
-                <TouchableOpacity>
-                  <FontAwesome
-                    name="check-square"
-                    size={26}
-                    color="black"
-                    style={{ marginLeft: 7 }}
-                  />
-                </TouchableOpacity>
-              </View>
-            </StyledList>
-          );
+          if (item.category === category) {
+            return <Todo item={item} todos={todos} setTodos={setTodos}></Todo>;
+          }
         })}
       </ScrollView>
     </SafeAreaView>
